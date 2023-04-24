@@ -22,194 +22,154 @@ namespace FuckYouKinect
     {
 
         #region Member Variables 
-        public KinectSensor kinect;
+        private KinectSensor _KinectDevice;
+        private readonly Brush[] _SkeletonBrushes;
+        private Skeleton[] _FrameSkeletons;
         #endregion Member Variables 
-
-        #region Constructor
+        #region Constructor 
         public MainWindow()
         {
-
             InitializeComponent();
-            KinectStart();
-
+            this._SkeletonBrushes = new[] { Brushes.Black, Brushes.Crimson, Brushes.Indigo,
+            Brushes.DodgerBlue, Brushes.Purple, Brushes.Pink };
+            KinectSensor.KinectSensors.StatusChanged += KinectSensors_StatusChanged;
+            this.KinectDevice = KinectSensor.KinectSensors
+            .FirstOrDefault(x => x.Status == KinectStatus.Connected);
         }
-        #endregion Constructor
-
-        #region Methods
-        public void DrawPoint(Joint point)
+        #endregion Constructor 
+        #region Methods 
+        private void KinectSensors_StatusChanged(object sender, StatusChangedEventArgs e)
         {
-            // Create an ellipse.
-            Ellipse ellipse = new Ellipse
+            switch (e.Status)
             {
-                Width = 10,
-                Height = 10,
-                Fill = Brushes.Black
-            };
-
-            // Position the ellipse according to the point's coordinates.
-            Canvas.SetLeft(ellipse, ((point.Position.X * ActualHeight / 2) + (ActualWidth / 2)) - ellipse.Width / 2);
-            Canvas.SetTop(ellipse, ((point.Position.Y * -ActualHeight / 2) + (ActualHeight / 2)) - ellipse.Height / 2);
-
-            // Add the ellipse to the canvas.
-
-
-            myCanvas.Children.Add(ellipse);
-
-        }
-
-        public void DrawBone(Joint joint1, Joint joint2)
-        {
-            Line line = new Line
-            {
-                X1 = ((joint1.Position.X * ActualHeight / 2) + (ActualWidth / 2)),
-                Y1 = ((joint1.Position.Y * -ActualHeight / 2) + (ActualHeight / 2)),
-                X2 = ((joint2.Position.X * ActualHeight / 2) + (ActualWidth / 2)),
-                Y2 = ((joint2.Position.Y * -ActualHeight / 2) + (ActualHeight / 2)),
-                Stroke = Brushes.Black,
-                StrokeThickness = 4
-            };
-            myCanvas.Children.Add(line);
-        }
-
-        public void DrawAllBones(Skeleton user)
-        {
-            DrawBone(user.Joints[JointType.Head], user.Joints[JointType.ShoulderCenter]);
-            DrawBone(user.Joints[JointType.ShoulderCenter], user.Joints[JointType.ShoulderRight]);
-            DrawBone(user.Joints[JointType.ShoulderRight], user.Joints[JointType.ElbowRight]);
-            DrawBone(user.Joints[JointType.ElbowRight], user.Joints[JointType.WristRight]);
-            DrawBone(user.Joints[JointType.WristRight], user.Joints[JointType.HandRight]);
-            DrawBone(user.Joints[JointType.ShoulderCenter], user.Joints[JointType.ShoulderLeft]);
-            DrawBone(user.Joints[JointType.ShoulderLeft], user.Joints[JointType.ElbowLeft]);
-            DrawBone(user.Joints[JointType.ElbowLeft], user.Joints[JointType.WristLeft]);
-            DrawBone(user.Joints[JointType.WristLeft], user.Joints[JointType.HandLeft]);
-            DrawBone(user.Joints[JointType.ShoulderCenter], user.Joints[JointType.Spine]);
-            DrawBone(user.Joints[JointType.Spine], user.Joints[JointType.HipCenter]);
-            DrawBone(user.Joints[JointType.HipCenter], user.Joints[JointType.HipRight]);
-            DrawBone(user.Joints[JointType.HipRight], user.Joints[JointType.KneeRight]);
-            DrawBone(user.Joints[JointType.KneeRight], user.Joints[JointType.AnkleRight]);
-            DrawBone(user.Joints[JointType.AnkleRight], user.Joints[JointType.FootRight]);
-            DrawBone(user.Joints[JointType.HipCenter], user.Joints[JointType.HipLeft]);
-            DrawBone(user.Joints[JointType.HipLeft], user.Joints[JointType.KneeLeft]);
-            DrawBone(user.Joints[JointType.KneeLeft], user.Joints[JointType.AnkleLeft]);
-            DrawBone(user.Joints[JointType.AnkleLeft], user.Joints[JointType.FootLeft]);
-        }
-
-        void KinectStart()
-        {
-            kinect = KinectSensor
-                .KinectSensors
-                .FirstOrDefault
-                (s => s.Status == KinectStatus.Connected);
-            if (kinect != null)
-            {
-                kinect.SkeletonStream.Enable();
-                kinect.SkeletonFrameReady +=
-                    new EventHandler<SkeletonFrameReadyEventArgs>
-                    (SkeletonFrameReady);
-
-                kinect.Start();
-                Closing += MainWindow_Closing;
-
-            }
-            else
-            {
-                Close();
+                case KinectStatus.Initializing:
+                case KinectStatus.Connected:
+                    this.KinectDevice = e.Sensor;
+                    break;
+                case KinectStatus.Disconnected:
+                    //TODO: Give the user feedback to plug-in a Kinect device. 
+                    this.KinectDevice = null;
+                    break;
+                default:
+                    //TODO: Show an error state 
+                    break;
             }
         }
 
-        private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        private void KinectDevice_SkeletonFrameReady(object sender, SkeletonFrameReadyEventArgs e)
         {
-            kinect.Stop();
-        }
-
-        private static Skeleton GetPrimarySkeleton(Skeleton[] skeletons)
-        {
-            Skeleton skeleton = null;
-            if (skeletons != null)
-            {
-                //Find the closest skeleton 
-                for (int i = 0; i < skeletons.Length; i++)
-                {
-                    if (skeletons[i].TrackingState == SkeletonTrackingState.Tracked)
-                    {
-                        if (skeleton == null)
-                        {
-                            skeleton = skeletons[i];
-                        }
-                        else
-                        {
-                            if (skeleton.Position.Z > skeletons[i].Position.Z)
-                            {
-                                skeleton = skeletons[i];
-                            }
-                        }
-                    }
-                }
-            }
-            return skeleton;
-        }
-        void SkeletonFrameReady(object sender, SkeletonFrameReadyEventArgs args)
-        {
-
-            using (var frame = args.OpenSkeletonFrame())
+            using (SkeletonFrame frame = e.OpenSkeletonFrame())
             {
                 if (frame != null)
                 {
-                    Skeleton[] skeletons = new Skeleton[frame.SkeletonArrayLength];
-                    frame.CopySkeletonDataTo(skeletons);
-                    Skeleton skeleton = GetPrimarySkeleton(skeletons);
+                    Brush userBrush;
+                    Skeleton skeleton;
+                    JointType[] joints;
 
-
-                    if (skeletons.Length > 0)
+                    LayoutRoot.Children.Clear();
+                    frame.CopySkeletonDataTo(this._FrameSkeletons);
+                    for (int i = 0; i < this._FrameSkeletons.Length; i++)
                     {
-                        var user = skeletons.Where(
-                            u => u.TrackingState == SkeletonTrackingState.Tracked
-                        ).FirstOrDefault();
-                        if (user != null)
+                        skeleton = this._FrameSkeletons[i];
+                        if (skeleton.TrackingState == SkeletonTrackingState.Tracked)
                         {
-                            myCanvas.Children.Clear();
-                            foreach (Joint joint in user.Joints)
-                            {
-                                // 3D coordinates in meters
+                            userBrush = this._SkeletonBrushes[i % this._SkeletonBrushes.Length];
 
-                                DrawPoint(joint);
-                            }
-                            DrawAllBones(user);
+                            //Draws the skeleton’s head and torso 
+                            joints = new[] { JointType.Head, JointType.ShoulderCenter,
+                                             JointType.ShoulderLeft, JointType.Spine,
+                                             JointType.ShoulderRight, JointType.ShoulderCenter,
+                                             JointType.HipCenter, JointType.HipLeft,
+                                             JointType.Spine, JointType.HipRight,
+                                             JointType.HipCenter };
+                            LayoutRoot.Children.Add(CreateFigure(skeleton, userBrush, joints));
 
+                            //Draws the skeleton’s left leg 
+                            joints = new[] { JointType.HipLeft, JointType.KneeLeft,
+                                     JointType.AnkleLeft, JointType.FootLeft };
+                            LayoutRoot.Children.Add(CreateFigure(skeleton, userBrush, joints));
+
+                            //Draws the skeleton’s right leg 
+                            joints = new[] { JointType.HipRight, JointType.KneeRight,
+                                     JointType.AnkleRight, JointType.FootRight };
+                            LayoutRoot.Children.Add(CreateFigure(skeleton, userBrush, joints));
+
+                            //Draws the skeleton’s left arm 
+                            joints = new[] { JointType.ShoulderLeft, JointType.ElbowLeft,
+                                     JointType.WristLeft, JointType.HandLeft };
+                            LayoutRoot.Children.Add(CreateFigure(skeleton, userBrush, joints));
+
+                            //Draws the skeleton’s right arm 
+                            joints = new[] { JointType.ShoulderRight, JointType.ElbowRight,
+                                     JointType.WristRight, JointType.HandRight };
+                            LayoutRoot.Children.Add(CreateFigure(skeleton, userBrush, joints));
                         }
                     }
-
                 }
             }
         }
 
-        private double GetJointAngle(Joint zeroJoint, Joint angleJoint)
+        private Polyline CreateFigure(Skeleton skeleton, Brush brush, JointType[] joints)
         {
-            Point zeroPoint = GetJointPoint(zeroJoint);
-            Point anglePoint = GetJointPoint(angleJoint);
-            Point x = new Point(zeroPoint.X + anglePoint.X, zeroPoint.Y);
-            double a;
-            double b;
-            double c;
-            a = Math.Sqrt(Math.Pow(zeroPoint.X - anglePoint.X, 2) +
-            Math.Pow(zeroPoint.Y - anglePoint.Y, 2));
-            b = anglePoint.X;
-            c = Math.Sqrt(Math.Pow(anglePoint.X - x.X, 2) + Math.Pow(anglePoint.Y - x.Y, 2));
-            double angleRad = Math.Acos((a * a + b * b - c * c) / (2 * a * b));
-            double angleDeg = angleRad * 180 / Math.PI;
-            if (zeroPoint.Y < anglePoint.Y)
+            Polyline figure = new Polyline();
+            figure.StrokeThickness = 8;
+            figure.Stroke = brush;
+            for (int i = 0; i < joints.Length; i++)
             {
-                angleDeg = 360 - angleDeg;
+                figure.Points.Add(GetJointPoint(skeleton.Joints[joints[i]]));
             }
-            return angleDeg;
+            return figure;
+        }
+        private Point GetJointPoint(Joint joint)
+        {
+            CoordinateMapper coordinateMapper = this.KinectDevice.CoordinateMapper;
+            DepthImagePoint depthPoint = coordinateMapper.MapSkeletonPointToDepthPoint(joint.Position, this.KinectDevice.DepthStream.Format);
+            ColorImagePoint colorPoint = coordinateMapper.MapDepthPointToColorPoint(this.KinectDevice.DepthStream.Format, depthPoint, this.KinectDevice.ColorStream.Format);
+
+            double xRatio = this.LayoutRoot.ActualWidth / this.KinectDevice.ColorStream.FrameWidth;
+            double yRatio = this.LayoutRoot.ActualHeight / this.KinectDevice.ColorStream.FrameHeight;
+
+            Point point = new Point(colorPoint.X * xRatio, colorPoint.Y * yRatio);
+            return point;
         }
 
-        #endregion Methods
 
+        #endregion Methods 
 
+        #region Properties 
+        public KinectSensor KinectDevice
+        {
+            get { return this._KinectDevice; }
+            set
+            {
+                if (this._KinectDevice != value)
+                {
+                    //Uninitialize 
+                    if (this._KinectDevice != null)
+                    {
+                        this._KinectDevice.Stop();
+                        this._KinectDevice.SkeletonFrameReady -= KinectDevice_SkeletonFrameReady;
+                        this._KinectDevice.SkeletonStream.Disable();
+                        this._FrameSkeletons = null;
+                    }
 
-
-
+                    this._KinectDevice = value;
+                    //Initialize 
+                    if (this._KinectDevice != null)
+                    {
+                        if (this._KinectDevice.Status == KinectStatus.Connected)
+                        {
+                            this._KinectDevice.SkeletonStream.Enable();
+                            this._FrameSkeletons = new
+                           Skeleton[this._KinectDevice.SkeletonStream.FrameSkeletonArrayLength];
+                            this.KinectDevice.SkeletonFrameReady +=
+                           KinectDevice_SkeletonFrameReady;
+                            this._KinectDevice.Start();
+                        }
+                    }
+                }
+            }
+        }
+        #endregion Properties
     }
-
 }
